@@ -1,0 +1,38 @@
+
+# redis-evaluation-service
+apiVersion: v1
+kind: Service
+metadata:
+  name: svc-redis-evaluation-service
+  namespace: evaluation-service
+  labels:
+    app: evaluation-service
+    instance: svc-redis-evaluation-service
+spec:
+  type: ClusterIP
+  selector:
+    app: evaluation-service
+    instance: redis-evaluation-service
+  ports:
+    - port: 80
+      targetPort: 6379
+
+
+---
+# evaluation-service
+apiVersion: v1
+kind: Service
+metadata:
+  name: svc-evaluation-service
+  namespace: evaluation-service
+  labels:
+    app: evaluation-service
+    instance: svc-evaluation-service
+spec:
+  type: ClusterIP
+  selector:
+    app: evaluation-service
+    instance: app-evaluation-service
+  ports:
+    - port: 80
+      targetPort: 8004

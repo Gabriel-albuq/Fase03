@@ -1,0 +1,38 @@
+
+# postgres-db-targeting-service
+apiVersion: v1
+kind: Service
+metadata:
+  name: svc-postgres-db-targeting-service
+  namespace: targeting-service
+  labels:
+    app: targeting-service
+    instance: svc-postgres-db-targeting-service
+spec:
+  type: ClusterIP
+  selector:
+    app: targeting-service
+    instance: postgres-db-targeting-service
+  ports:
+    - port: 80
+      targetPort: 5432
+
+
+---
+# targeting-service
+apiVersion: v1
+kind: Service
+metadata:
+  name: svc-targeting-service
+  namespace: targeting-service
+  labels:
+    app: targeting-service
+    instance: svc-targeting-service
+spec:
+  type: ClusterIP
+  selector:
+    app: targeting-service
+    instance: app-targeting-service
+  ports:
+    - port: 80
+      targetPort: 8003

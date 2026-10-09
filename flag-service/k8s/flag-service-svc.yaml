@@ -1,0 +1,38 @@
+
+# postgres-db-flag-service
+apiVersion: v1
+kind: Service
+metadata:
+  name: svc-postgres-db-flag-service
+  namespace: flag-service
+  labels:
+    app: flag-service
+    instance: svc-postgres-db-flag-service
+spec:
+  type: ClusterIP
+  selector:
+    app: flag-service
+    instance: postgres-db-flag-service
+  ports:
+    - port: 80
+      targetPort: 5432
+
+
+---
+# flag-service
+apiVersion: v1
+kind: Service
+metadata:
+  name: svc-flag-service
+  namespace: flag-service
+  labels:
+    app: flag-service
+    instance: svc-flag-service
+spec:
+  type: ClusterIP
+  selector:
+    app: flag-service
+    instance: app-flag-service
+  ports:
+    - port: 80
+      targetPort: 8002

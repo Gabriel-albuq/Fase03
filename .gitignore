@@ -1,0 +1,71 @@
+# Variáveis de ambiente / segredos
+.env
+*.env
+.env.*
+!.env.example
+
+# Credenciais e acesso ao cluster
+*.pem
+*.key
+kubeconfig
+*.kubeconfig
+
+# Go
+/auth-service/app
+/evaluation-service/app
+*.exe
+*.test
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# Docker
+*.log
+
+# Editor / SO
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+
+# Kubernets
+*-secrets.yml
+*-secrets.yaml
+!*-secrets.example.yml
+!*-secrets.example.yaml
+
+
+# Pessoais
+explicacao_deployment_kubernetes.txt
+explicacao_nginx_controller.txt
+explicacao_aws.txt
+comandos_run.txt
+POSTECH - Tech Challenge - Fase 2.pdf
+POSTECH - Tech Challenge - Fase 3.pdf
+PASSO_A_PASSO.txt
+Prints.pptx
+
+# Coleções de API com credenciais reais nos headers
+requisicoes.yaml
+
+# Terraform (o .terraform.lock.hcl deve ser commitado)
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfvars.json
+*.tfplan
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc

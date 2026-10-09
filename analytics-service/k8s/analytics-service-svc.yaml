@@ -1,0 +1,17 @@
+# analytics-service
+apiVersion: v1
+kind: Service
+metadata:
+  name: svc-analytics-service
+  namespace: analytics-service
+  labels:
+    app: analytics-service
+    instance: svc-analytics-service
+spec:
+  type: ClusterIP
+  selector:
+    app: analytics-service
+    instance: app-analytics-service
+  ports:
+    - port: 80
+      targetPort: 8005

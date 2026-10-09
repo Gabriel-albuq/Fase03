@@ -1,0 +1,38 @@
+
+# postgres-db-auth-service
+apiVersion: v1
+kind: Service
+metadata:
+  name: svc-postgres-db-auth-service
+  namespace: auth-service
+  labels:
+    app: auth-service
+    instance: svc-postgres-db-auth-service
+spec:
+  type: ClusterIP
+  selector:
+    app: auth-service
+    instance: postgres-db-auth-service
+  ports:
+    - port: 80
+      targetPort: 5432
+
+
+---
+# auth-service
+apiVersion: v1
+kind: Service
+metadata:
+  name: svc-auth-service
+  namespace: auth-service
+  labels:
+    app: auth-service
+    instance: svc-auth-service
+spec:
+  type: ClusterIP
+  selector:
+    app: auth-service
+    instance: app-auth-service
+  ports:
+    - port: 80
+      targetPort: 8001

@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: configmap-targeting-service
+  namespace: targeting-service
+data:
+  DB_USERNAME: "postgres"
+  DB_DATABASE: "targeting_db"
+  AUTH_SERVICE_URL: "http://svc-auth-service.auth-service.svc.cluster.local:80"

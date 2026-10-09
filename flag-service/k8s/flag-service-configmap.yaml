@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: configmap-flag-service
+  namespace: flag-service
+data:
+  DB_USERNAME: "postgres"
+  DB_DATABASE: "flags_db"
+  AUTH_SERVICE_URL: "http://svc-auth-service.auth-service.svc.cluster.local:80"

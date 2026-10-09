@@ -1,0 +1,20 @@
+# auth-service
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ingress-auth-service
+  namespace: auth-service
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+spec:
+  ingressClassName: nginx
+  rules:
+    - http:
+        paths:
+          - path: /auth(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: svc-auth-service
+                port:
+                  number: 80
