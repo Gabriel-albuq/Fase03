@@ -68,12 +68,11 @@ jobs:
         uses: golangci/golangci-lint-action@v6
         with:
           version: v1.59.1
-          working-directory:
-            auth-service
-            # Exceção do errcheck só para json.NewEncoder(w).Encode(...) nos handlers HTTP:
-            # o Encode retorna um erro que o código não verifica, e o lint alertava isso.
-            # Ignoramos porque o status (200/201) já foi enviado antes do Encode, então não há como avisar o cliente.
-            # O errcheck continua valendo para todo o resto (banco, arquivos etc.)
+          working-directory: auth-service
+          # Exceção do errcheck só para json.NewEncoder(w).Encode(...) nos handlers HTTP:
+          # o Encode retorna um erro que o código não verifica, e o lint alertava isso.
+          # Ignoramos porque o status (200/201) já foi enviado antes do Encode, então não há como avisar o cliente.
+          # O errcheck continua valendo para todo o resto (banco, arquivos etc.)
           args: --exclude 'Error return value of .\(\*encoding/json\.Encoder\)\.Encode. is not checked'
 
   # ==========================================================================
@@ -101,7 +100,7 @@ jobs:
           docker run --rm -v "$PWD:/src" aquasec/trivy:0.56.2 \
             fs --scanners vuln --severity CRITICAL --exit-code 1 --no-progress /src
 
-      # SAST: padrões inseguros no código (roda mesmo se o Trivy falhar, para mostrar os dois relatórios)
+      # SAST: padrões inseguros no código
       - name: 🔐 SAST - gosec
         if: ${{ !cancelled() }}
         run: |
@@ -121,8 +120,6 @@ jobs:
       - name: 📥 Checkout
         uses: actions/checkout@v4
 
-      # Os steps de AWS (credenciais, login e push) só rodam em push na main e com a variável ENABLE_ECR_PUSH = true
-      # (ligar em Settings > Secrets and variables > Actions > Variables depois do terraform apply)
       - name: 🔑 Configure AWS credentials
         if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.ENABLE_ECR_PUSH == 'true'
         uses: aws-actions/configure-aws-credentials@v4
