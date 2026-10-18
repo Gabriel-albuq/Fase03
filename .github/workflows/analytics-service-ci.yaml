@@ -1,0 +1,210 @@
+# analytics-service-ci.yaml
+# CI do analytics-service: roda em PR e em push na main, só quando a pasta do serviço muda
+
+name: analytics-service CI
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "analytics-service/**"
+      - ".github/workflows/analytics-service-ci.yaml"
+  push:
+    branches: [main]
+    paths:
+      - "analytics-service/**"
+      - ".github/workflows/analytics-service-ci.yaml"
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY: analytics-service # Mesmo nome criado pelo módulo ecr do Terraform
+
+# Todos os comandos rodam dentro da pasta do serviço
+defaults:
+  run:
+    working-directory: analytics-service
+
+jobs:
+  # ==========================================================================
+  # Job 1: Build & Unit Test
+  build-test:
+    name: 🔨 Build & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12" # Mesma versão do Dockerfile (python:3.12-slim)
+          cache: pip
+          cache-dependency-path: analytics-service/requirements.txt
+
+      - name: 📦 Install dependencies
+        run: pip install -r requirements.txt pytest==8.3.3
+
+      - name: 🏗️ Build
+        run: python -m compileall -q .
+
+      # O pytest sai com código 5 quando não encontra nenhum teste;
+      - name: 🧪 Test
+        run: pytest -v || [ $? -eq 5 ]
+
+  # ==========================================================================
+  # Job 2: Linter / Static Analysis
+  lint:
+    name: 🧹 Lint
+    runs-on: ubuntu-latest
+    needs: build-test
+
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Equivalente ao Linter em Python
+      - name: 📦 Install flake8
+        run: pip install flake8==7.1.1
+
+      # Bloqueia só erros reais: sintaxe inválida (E9), nomes não definidos (F82) e comparações/instruções quebradas (F63, F7).
+      - name: 🔍 flake8 (erros)
+        run: flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+
+  # ==========================================================================
+  # Job 3: Security Scan (SCA + SAST) - vulnerabilidade crítica bloqueia a pipeline
+  security:
+    name: 🛡️ Security Scan
+    runs-on: ubuntu-latest
+    needs: lint
+
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # SCA: CVEs nas dependências do requirements.txt
+      - name: 📦 SCA - Trivy
+        run: |
+          docker run --rm -v "$PWD:/src" aquasec/trivy:0.56.2 \
+            fs --scanners vuln --severity CRITICAL --exit-code 1 --no-progress /src
+
+      # SAST: padrões inseguros no código
+      # -lll = só severidade alta, -ii = confiança média ou maior (mesmo critério do gosec nos serviços Go)
+      - name: 🔐 SAST - bandit
+        if: ${{ !cancelled() }}
+        run: |
+          pip install bandit==1.7.10
+          bandit -r . -lll -ii
+
+  # ==========================================================================
+  # Job 4: Docker Build & Push - no PR só build + scan; push no ECR só em push na main
+  docker:
+    name: 🐳 Docker Build & Push
+    runs-on: ubuntu-latest
+    needs: security
+    outputs:
+      image-tag: ${{ steps.tag.outputs.tag }} # Usado depois pelo job de GitOps
+
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+
+      - name: 🔑 Configure AWS credentials
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.ENABLE_ECR_PUSH == 'true'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: 🔓 Login to Amazon ECR
+        id: ecr
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.ENABLE_ECR_PUSH == 'true'
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: 🏷️ Set image tag
+        id: tag
+        run: echo "tag=v1.0.0-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - name: 🐳 Docker build
+        run: docker build --platform linux/amd64 -t "$ECR_REPOSITORY:${{ steps.tag.outputs.tag }}" .
+
+      # Container scan: CVEs no sistema da imagem (Debian do python:3.12-slim) e nos pacotes Python instalados
+      - name: 🔎 Container scan - Trivy
+        run: |
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.56.2 \
+            image --severity CRITICAL --exit-code 1 --no-progress "$ECR_REPOSITORY:${{ steps.tag.outputs.tag }}"
+
+      - name: 📤 Push to ECR
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.ENABLE_ECR_PUSH == 'true'
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          docker tag "$ECR_REPOSITORY:$TAG" "$REGISTRY/$ECR_REPOSITORY:$TAG"
+          docker push "$REGISTRY/$ECR_REPOSITORY:$TAG"
+          echo "Imagem enviada: \`$REGISTRY/$ECR_REPOSITORY:$TAG\`" >> "$GITHUB_STEP_SUMMARY"
+
+  # ============================================
+  # JOB 5: Pipeline Summary
+  pipeline-summary:
+    name: 📊 Pipeline Summary
+    runs-on: ubuntu-latest
+    needs: [build-test, lint, security, docker]
+    if: always()
+
+    # Sem checkout a pasta analytics-service não existe, então este job roda na raiz
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}
+
+    steps:
+      - name: 📊 Complete Pipeline Summary
+        env:
+          IMAGE_TAG: ${{ needs.docker.outputs.image-tag }}
+          BUILD: ${{ needs.build-test.result }}
+          LINT: ${{ needs.lint.result }}
+          SECURITY: ${{ needs.security.result }}
+          DOCKER: ${{ needs.docker.result }}
+          PUSHED: ${{ needs.docker.result == 'success' && github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.ENABLE_ECR_PUSH == 'true' }}
+        run: |
+          # Resultado real do job -> ícone
+          icon() {
+            case "$1" in
+              success) echo "✅" ;;
+              failure) echo "❌" ;;
+              skipped) echo "⏭️" ;;
+              *) echo "⏹️" ;;
+            esac
+          }
+
+          if [ "$PUSHED" = "true" ]; then
+            STATUS="🎉 **READY - Image pushed to ECR**"
+          elif [ "$DOCKER" = "success" ]; then
+            STATUS="🔍 **VALIDATED - Image built and scanned, not pushed (PR or ENABLE_ECR_PUSH off)**"
+          else
+            STATUS="🚫 **FAILED - Pipeline stopped before publishing the image**"
+          fi
+
+          echo "## 🚀 CI Pipeline Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Pipeline Steps:" >> $GITHUB_STEP_SUMMARY
+          echo "1. 🔨 **Build & Test:** $(icon "$BUILD") $BUILD" >> $GITHUB_STEP_SUMMARY
+          echo "2. 🧹 **Lint:** $(icon "$LINT") $LINT" >> $GITHUB_STEP_SUMMARY
+          echo "3. 🛡️ **Security Scan:** $(icon "$SECURITY") $SECURITY" >> $GITHUB_STEP_SUMMARY
+          echo "4. 🐳 **Docker Build & Push:** $(icon "$DOCKER") $DOCKER" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Deployment Details:" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image:** \`$ECR_REPOSITORY:${IMAGE_TAG:-not built}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Event:** \`${{ github.event_name }}\` on \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status:** $STATUS" >> $GITHUB_STEP_SUMMARY

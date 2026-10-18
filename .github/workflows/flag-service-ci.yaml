@@ -139,7 +139,7 @@ jobs:
       - name: 🐳 Docker build
         run: docker build --platform linux/amd64 -t "$ECR_REPOSITORY:${{ steps.tag.outputs.tag }}" .
 
-      # Container scan: CVEs no sistema da imagem (alpine) e no binário
+      # Container scan: CVEs no sistema da imagem (Debian do python:3.12-slim) e no binário
       - name: 🔎 Container scan - Trivy
         run: |
           docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.56.2 \
