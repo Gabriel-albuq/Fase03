@@ -1,0 +1,25 @@
+# ============================================
+# KUSTOMIZATION: Auth Service Base
+# ============================================
+# Configuração base do Kustomize
+# Define recursos e labels comuns
+# ============================================
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+- externalsecret.yaml                    # Secret vindo do AWS Secrets Manager (External Secrets)
+- deployment.yaml
+- service.yaml
+- hpa.yaml
+- db-init-job.yaml
+
+configMapGenerator:
+- name: db-init-auth-service             # init.sql vira ConfigMap montado no Job
+  files:
+  - init.sql
+
+commonLabels:
+  app: auth-service
+  managed-by: gitops

@@ -61,6 +61,54 @@ module "rds" {
 }
 
 # ============================================================================
+# Secrets Manager: credenciais de cada serviço, lidas pelo External Secrets no cluster
+
+# Chave mestra do auth-service (usada para criar as API keys dos outros serviços)
+resource "random_password" "auth_master_key" {
+  length  = 32
+  special = false
+}
+
+locals {
+  # DATABASE_URL no formato esperado pelos serviços, montada com os dados do RDS
+  database_urls = {
+    for service, db in module.rds :
+    service => "postgres://${db.username}:${db.password}@${db.address}:${db.port}/${db.db_name}?sslmode=require"
+  }
+
+  # Chaves de cada segredo (viram as chaves do Secret no Kubernetes)
+  app_secrets = {
+    "auth-service" = {
+      DB_URL     = local.database_urls["auth-service"]
+      MASTER_KEY = random_password.auth_master_key.result
+    }
+    "flag-service" = {
+      DB_URL = local.database_urls["flag-service"]
+    }
+    "targeting-service" = {
+      DB_URL = local.database_urls["targeting-service"]
+    }
+  }
+}
+
+module "secrets" {
+  source = "../../modules/secrets-manager"
+  # for_each pelos nomes fixos: valores derivados de dados sensíveis não podem ser chave de for_each
+  for_each = toset(["auth-service", "flag-service", "targeting-service"])
+
+  name   = "${var.project}/${each.key}"
+  values = local.app_secrets[each.key]
+}
+
+# Role do External Secrets (Pod Identity) com leitura só desses segredos
+module "external_secrets" {
+  source = "../../modules/external-secrets"
+
+  cluster_name = module.eks.cluster_name
+  secret_arns  = [for s in module.secrets : s.arn]
+}
+
+# ============================================================================
 # ElastiCache: Redis usado como cache pelo evaluation-service
 module "elasticache" {
   source = "../../modules/elasticache"

@@ -1,0 +1,125 @@
+# ============================================
+# DEPLOYMENT: Auth Service
+# ============================================
+# Deployment base para o auth-service
+# Gerenciado via GitOps (ArgoCD)
+# ============================================
+
+apiVersion: apps/v1
+kind: Deployment
+
+# ============================================
+# METADATA
+# ============================================
+metadata:
+  name: deployment-auth-service          # Nome do deployment (referenciado pelo HPA)
+  labels:
+    app: auth-service                    # Label principal da aplicação
+    managed-by: gitops                   # Indica gerenciamento GitOps
+
+# ============================================
+# SPEC
+# ============================================
+spec:
+  # Sem "replicas": a quantidade é controlada pelo HPA (hpa.yaml).
+  # Se ficasse fixa aqui, o selfHeal do ArgoCD desfaria cada escala do HPA.
+
+  # ============================================
+  # SELECTOR
+  # ============================================
+  selector:
+    matchLabels:
+      app: auth-service                  # Seleciona pods com esta label
+      instance: app-auth-service         # Diferencia dos pods do Job de init (que também têm app: auth-service)
+
+  # ============================================
+  # TEMPLATE DO POD
+  # ============================================
+  template:
+    metadata:
+      labels:
+        app: auth-service                # Label aplicada aos pods
+        instance: app-auth-service
+
+    spec:
+      # ============================================
+      # CONTAINERS
+      # ============================================
+      containers:
+      - name: auth-service               # Nome do container
+        image: auth-service:v1.0.0       # Imagem base (será substituída pelo Kustomize)
+
+        # ============================================
+        # PORTAS
+        # ============================================
+        ports:
+        - containerPort: 8001            # Porta da aplicação Go
+          name: http                     # Nome da porta
+
+        # ============================================
+        # VARIÁVEIS DE AMBIENTE
+        # ============================================
+        env:
+        - name: PORT
+          value: "8001"                  # Porta em que a aplicação escuta
+        - name: DATABASE_URL             # postgres://...@<rds>:5432/auth_db (vem do ExternalSecret)
+          valueFrom:
+            secretKeyRef:
+              name: opaque-auth-service
+              key: DB_URL
+        - name: MASTER_KEY               # Chave mestra para criar API keys (vem do ExternalSecret)
+          valueFrom:
+            secretKeyRef:
+              name: opaque-auth-service
+              key: MASTER_KEY
+
+        # ============================================
+        # RECURSOS
+        # ============================================
+        resources:
+          requests:                      # Recursos mínimos garantidos
+            memory: "64Mi"               # Memória mínima
+            cpu: "100m"                  # CPU mínima (0.1 core)
+          limits:                        # Recursos máximos permitidos
+            memory: "128Mi"              # Memória máxima
+            cpu: "250m"                  # CPU máxima (0.25 core)
+
+        # ============================================
+        # LIVENESS PROBE
+        # ============================================
+        # Verifica se o container está vivo
+        # Se falhar, Kubernetes reinicia o pod
+        livenessProbe:
+          httpGet:
+            path: /health                # Endpoint de health check
+            port: 8001                   # Porta do health check
+          initialDelaySeconds: 10        # Aguarda 10s antes da primeira verificação
+          periodSeconds: 15              # Verifica a cada 15s
+          timeoutSeconds: 5              # Timeout de 5s por verificação
+          failureThreshold: 3            # Reinicia após 3 falhas consecutivas
+
+        # ============================================
+        # READINESS PROBE
+        # ============================================
+        # Verifica se o container está pronto para receber tráfego
+        # Se falhar, remove o pod do Service
+        readinessProbe:
+          httpGet:
+            path: /health                # Endpoint de health check
+            port: 8001                   # Porta do health check
+          initialDelaySeconds: 5         # Aguarda 5s antes da primeira verificação
+          periodSeconds: 10              # Verifica a cada 10s
+          timeoutSeconds: 3              # Timeout de 3s por verificação
+          failureThreshold: 3            # Remove do Service após 3 falhas
+
+        # ============================================
+        # SECURITY CONTEXT
+        # ============================================
+        # Configurações de segurança do container
+        securityContext:
+          allowPrivilegeEscalation: false  # Não permite escalação de privilégios
+          runAsNonRoot: true               # Não executa como root
+          runAsUser: 1000                  # UID do appuser criado no Dockerfile
+          capabilities:
+            drop:
+            - ALL                          # Remove todas as capabilities Linux

@@ -108,3 +108,16 @@ resource "aws_eks_node_group" "main" {
 
   depends_on = [aws_iam_role_policy_attachment.node]
 }
+
+# ============================================================================
+# Add-ons
+
+# Agente do EKS Pod Identity: permite dar uma role de IAM a um ServiceAccount
+# (usado pelo External Secrets para ler o Secrets Manager sem chaves fixas)
+resource "aws_eks_addon" "pod_identity" {
+  cluster_name = aws_eks_cluster.main.name
+  addon_name   = "eks-pod-identity-agent"
+
+  # O agente roda como DaemonSet, então precisa dos nodes prontos
+  depends_on = [aws_eks_node_group.main]
+}

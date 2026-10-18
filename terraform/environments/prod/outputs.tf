@@ -34,6 +34,18 @@ output "rds_passwords" {
 }
 
 # ============================================================================
+# Secrets Manager / External Secrets
+output "secret_names" {
+  description = "Nome de cada segredo no Secrets Manager (usado no ExternalSecret de cada serviço)"
+  value       = { for service, s in module.secrets : service => s.name }
+}
+
+output "external_secrets_role_arn" {
+  description = "Role de IAM usada pelo External Secrets via Pod Identity"
+  value       = module.external_secrets.role_arn
+}
+
+# ============================================================================
 # ElastiCache
 output "redis_url" {
   description = "URL do Redis para a variável REDIS_URL do evaluation-service"
