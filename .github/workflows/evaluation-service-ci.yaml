@@ -64,6 +64,9 @@ jobs:
           go-version: "1.21"
           cache-dependency-path: evaluation-service/go.sum
 
+      # Histórico: o lint barrou dois problemas no evaluator.go, corrigidos no código (sem exceção aqui):
+      # - errcheck: o erro do RedisClient.Set(...).Err() era ignorado; agora uma falha no cache é registrada no log
+      # - staticcheck SA1019: "io/ioutil" está obsoleto desde o Go 1.16; trocado por io.ReadAll, que faz o mesmo
       - name: 🔍 golangci-lint
         uses: golangci/golangci-lint-action@v6
         with:
