@@ -1,0 +1,49 @@
+==========================================================================
+ OBSERVAÇÕES E DECISÕES DO PROJETO
+ (base para a seção "desafios encontrados e decisões tomadas" do relatório)
+==========================================================================
+
+
+--------------------------------------------------------------------------
+2026-10-18 - Dimensionamento do cluster EKS: 2 nodes t3.medium
+--------------------------------------------------------------------------
+Problema:
+  O primeiro apply subiu o EKS com 1 node t3.medium. No EKS, cada pod
+  recebe um IP da VPC, e o número de IPs por instância é limitado pelas
+  interfaces de rede (ENIs):
+    t3.medium: 3 ENIs x (6 IPs - 1) + 2 = 17 pods por node
+  Os manifestos da Fase 2 tinham replicas: 3 e HPA de 3 a 10 réplicas:
+    5 serviços x 3 réplicas ............................ 15 pods
+    sistema (aws-node, kube-proxy, coredns x2, metrics) . ~6 pods
+    ArgoCD .............................................. ~7 pods
+    Total ............................................... ~28 pods > 17
+  Os pods excedentes ficariam em "Pending". Além disso, um t3.medium tem
+  cerca de 1,9 vCPU alocável, pouco para tudo isso.
+
+  O enunciado não define tamanho nem quantidade de nodes, só pede
+  "o cluster Kubernetes e seus Node Groups".
+
+Decisão:
+  - Terraform (terraform/environments/prod/main.tf): desired_size = 2 no
+    module "eks" -> 2 x 17 = 34 pods de capacidade.
+  - Manifestos (*/k8s/*-deployment.yaml e *-hpa.yaml):
+      replicas: 3      -> 2   (2 réplicas mantêm alta disponibilidade)
+      minReplicas: 3   -> 2
+      maxReplicas: 10  -> 4   (5 serviços x 4 = 20 pods no pico, cabe
+                               nos 34 junto com sistema e ArgoCD)
+
+Alternativas consideradas:
+  - 1 node t3.large (35 pods, 8 GB): mesma capacidade de pods, mas com 1
+    node só não há tolerância a falha de máquina.
+  - Prefix delegation no VPC CNI (até 110 pods/node): resolve os IPs mas
+    não CPU/memória, e adiciona complexidade.
+  - Manter 1 node com 1 réplica por serviço: mais barato, mas fica no
+    limite e não demonstra distribuição de pods entre nodes.
+
+Custo:
+  +1 t3.medium, aproximadamente US$ 1/dia.
+
+Em produção:
+  Cluster Autoscaler ou Karpenter ajustariam a quantidade de nodes
+  conforme a carga (o node group já tem max_size = 5), em vez de um
+  valor fixo.
