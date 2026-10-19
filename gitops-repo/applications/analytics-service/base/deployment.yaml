@@ -1,0 +1,122 @@
+# ============================================
+# DEPLOYMENT: Analytics Service
+# ============================================
+# Deployment base para o analytics-service
+# Gerenciado via GitOps (ArgoCD)
+# Worker: lê os eventos da fila SQS e grava no DynamoDB
+# ============================================
+
+apiVersion: apps/v1
+kind: Deployment
+
+# ============================================
+# METADATA
+# ============================================
+metadata:
+  name: deployment-analytics-service     # Nome do deployment (referenciado pelo HPA)
+  labels:
+    app: analytics-service               # Label principal da aplicação
+    managed-by: gitops                   # Indica gerenciamento GitOps
+
+# ============================================
+# SPEC
+# ============================================
+spec:
+  # Sem "replicas": a quantidade é controlada pelo HPA (hpa.yaml).
+  # Se ficasse fixa aqui, o selfHeal do ArgoCD desfaria cada escala do HPA.
+
+  # ============================================
+  # SELECTOR
+  # ============================================
+  selector:
+    matchLabels:
+      app: analytics-service             # Seleciona pods com esta label
+      instance: app-analytics-service
+
+  # ============================================
+  # TEMPLATE DO POD
+  # ============================================
+  template:
+    metadata:
+      labels:
+        app: analytics-service           # Label aplicada aos pods
+        instance: app-analytics-service
+
+    spec:
+      # Pod Identity: as credenciais da AWS (SQS e DynamoDB) vêm da role ligada a este ServiceAccount
+      serviceAccountName: sa-analytics-service
+
+      # ============================================
+      # CONTAINERS
+      # ============================================
+      containers:
+      - name: analytics-service          # Nome do container
+        image: analytics-service:v1.0.0  # Imagem base (será substituída pelo Kustomize)
+
+        # ============================================
+        # PORTAS
+        # ============================================
+        ports:
+        - containerPort: 8005            # Porta da aplicação Python (gunicorn), só para o /health
+          name: http                     # Nome da porta
+
+        # ============================================
+        # VARIÁVEIS DE AMBIENTE
+        # ============================================
+        envFrom:
+        - configMapRef:
+            name: configmap-analytics-service    # AWS_SQS_URL, AWS_DYNAMODB_TABLE, AWS_REGION
+        env:
+        - name: PORT
+          value: "8005"                  # Porta em que a aplicação escuta
+
+        # ============================================
+        # RECURSOS
+        # ============================================
+        resources:
+          requests:                      # Recursos mínimos garantidos
+            memory: "128Mi"              # Memória mínima
+            cpu: "20m"                   # CPU mínima (worker passa a maior parte do tempo esperando a fila)
+          limits:                        # Recursos máximos permitidos
+            memory: "256Mi"              # Memória máxima
+            cpu: "300m"                  # CPU máxima (0.3 core)
+
+        # ============================================
+        # LIVENESS PROBE
+        # ============================================
+        # Verifica se o container está vivo
+        # Se falhar, Kubernetes reinicia o pod
+        livenessProbe:
+          httpGet:
+            path: /health                # Endpoint de health check
+            port: 8005                   # Porta do health check
+          initialDelaySeconds: 10        # Aguarda 10s antes da primeira verificação
+          periodSeconds: 15              # Verifica a cada 15s
+          timeoutSeconds: 5              # Timeout de 5s por verificação
+          failureThreshold: 3            # Reinicia após 3 falhas consecutivas
+
+        # ============================================
+        # READINESS PROBE
+        # ============================================
+        # Verifica se o container está pronto para receber tráfego
+        # Se falhar, remove o pod do Service
+        readinessProbe:
+          httpGet:
+            path: /health                # Endpoint de health check
+            port: 8005                   # Porta do health check
+          initialDelaySeconds: 5         # Aguarda 5s antes da primeira verificação
+          periodSeconds: 10              # Verifica a cada 10s
+          timeoutSeconds: 3              # Timeout de 3s por verificação
+          failureThreshold: 3            # Remove do Service após 3 falhas
+
+        # ============================================
+        # SECURITY CONTEXT
+        # ============================================
+        # Configurações de segurança do container
+        securityContext:
+          allowPrivilegeEscalation: false  # Não permite escalação de privilégios
+          runAsNonRoot: true               # Não executa como root
+          runAsUser: 1000                  # UID do appuser criado no Dockerfile
+          capabilities:
+            drop:
+            - ALL                          # Remove todas as capabilities Linux

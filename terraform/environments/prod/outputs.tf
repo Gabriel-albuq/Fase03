@@ -45,6 +45,14 @@ output "external_secrets_role_arn" {
   value       = module.external_secrets.role_arn
 }
 
+output "service_role_arns" {
+  description = "Roles de IAM dos serviços que chamam a AWS via Pod Identity"
+  value = {
+    "evaluation-service" = module.evaluation_identity.role_arn
+    "analytics-service"  = module.analytics_identity.role_arn
+  }
+}
+
 # ============================================================================
 # ElastiCache
 output "redis_url" {

@@ -1,0 +1,22 @@
+# ============================================
+# KUSTOMIZATION: Evaluation Service Base
+# ============================================
+# Configuração base do Kustomize
+# Define recursos e labels comuns
+# Sem Job de init: o serviço não usa PostgreSQL (Redis + SQS)
+# ============================================
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+- serviceaccount.yaml                    # Ligado à role de IAM via Pod Identity (SQS)
+- externalsecret.yaml                    # Secret vindo do AWS Secrets Manager (External Secrets)
+- configmap.yaml                         # URLs internas, fila SQS e região
+- deployment.yaml
+- service.yaml
+- hpa.yaml
+
+commonLabels:
+  app: evaluation-service
+  managed-by: gitops

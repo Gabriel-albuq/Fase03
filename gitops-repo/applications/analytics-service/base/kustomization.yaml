@@ -1,0 +1,21 @@
+# ============================================
+# KUSTOMIZATION: Analytics Service Base
+# ============================================
+# Configuração base do Kustomize
+# Define recursos e labels comuns
+# Sem Job de init nem ExternalSecret: o serviço não usa PostgreSQL nem segredos (SQS + DynamoDB via Pod Identity)
+# ============================================
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+- serviceaccount.yaml                    # Ligado à role de IAM via Pod Identity (SQS + DynamoDB)
+- configmap.yaml                         # Fila SQS, tabela DynamoDB e região
+- deployment.yaml
+- service.yaml
+- hpa.yaml
+
+commonLabels:
+  app: analytics-service
+  managed-by: gitops

@@ -16,9 +16,10 @@ resources:
 - db-init-job.yaml
 
 configMapGenerator:
-- name: db-init-auth-service             # init.sql vira ConfigMap montado no Job
+- name: db-init-auth-service             # init.sql e api-keys.sql viram ConfigMap montado no Job
   files:
   - init.sql
+  - api-keys.sql
 
 commonLabels:
   app: auth-service

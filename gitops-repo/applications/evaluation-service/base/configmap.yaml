@@ -1,0 +1,18 @@
+# ============================================
+# CONFIGMAP: Evaluation Service
+# ============================================
+# Configuração não sensível do evaluation-service
+# (REDIS_URL e SERVICE_API_KEY ficam no ExternalSecret)
+# ============================================
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: configmap-evaluation-service
+data:
+  # Services do flag e do targeting, em outros namespaces (por isso o FQDN)
+  FLAG_SERVICE_URL: "http://svc-flag-service.flag-service.svc.cluster.local:80"
+  TARGETING_SERVICE_URL: "http://svc-targeting-service.targeting-service.svc.cluster.local:80"
+  # Fila criada pelo Terraform (terraform output sqs_queue_url)
+  AWS_SQS_URL: "https://sqs.us-east-1.amazonaws.com/798350130470/fase03-fiap-analytics-events"
+  AWS_REGION: "us-east-1"

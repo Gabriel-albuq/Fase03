@@ -1,0 +1,16 @@
+# ============================================
+# CONFIGMAP: Analytics Service
+# ============================================
+# Configuração do analytics-service
+# Nada sensível: a autorização na AWS vem da role (Pod Identity), então não há Secret
+# ============================================
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: configmap-analytics-service
+data:
+  # Fila e tabela criadas pelo Terraform (terraform output sqs_queue_url / dynamodb_table_name)
+  AWS_SQS_URL: "https://sqs.us-east-1.amazonaws.com/798350130470/fase03-fiap-analytics-events"
+  AWS_DYNAMODB_TABLE: "ToggleMasterAnalytics"
+  AWS_REGION: "us-east-1"

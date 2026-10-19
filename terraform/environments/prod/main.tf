@@ -69,6 +69,13 @@ resource "random_password" "auth_master_key" {
   special = false
 }
 
+# API key do evaluation-service (chama o flag e o targeting, que validam no auth-service)
+# Mesmo formato das chaves geradas pelo auth (prefixo tm_key_); o auth só guarda o hash
+resource "random_password" "evaluation_api_key" {
+  length  = 64
+  special = false
+}
+
 locals {
   # DATABASE_URL no formato esperado pelos serviços, montada com os dados do RDS
   database_urls = {
@@ -76,11 +83,15 @@ locals {
     service => "postgres://${db.username}:${db.password}@${db.address}:${db.port}/${db.db_name}?sslmode=require"
   }
 
+  evaluation_api_key = "tm_key_${random_password.evaluation_api_key.result}"
+
   # Chaves de cada segredo (viram as chaves do Secret no Kubernetes)
   app_secrets = {
     "auth-service" = {
       DB_URL     = local.database_urls["auth-service"]
       MASTER_KEY = random_password.auth_master_key.result
+      # SHA-256 em hex, igual ao hashAPIKey do auth; o Job db-init grava na tabela api_keys
+      EVALUATION_KEY_HASH = sha256(local.evaluation_api_key)
     }
     "flag-service" = {
       DB_URL = local.database_urls["flag-service"]
@@ -88,13 +99,17 @@ locals {
     "targeting-service" = {
       DB_URL = local.database_urls["targeting-service"]
     }
+    "evaluation-service" = {
+      REDIS_URL       = module.elasticache.url
+      SERVICE_API_KEY = local.evaluation_api_key
+    }
   }
 }
 
 module "secrets" {
   source = "../../modules/secrets-manager"
   # for_each pelos nomes fixos: valores derivados de dados sensíveis não podem ser chave de for_each
-  for_each = toset(["auth-service", "flag-service", "targeting-service"])
+  for_each = toset(["auth-service", "flag-service", "targeting-service", "evaluation-service"])
 
   name   = "${var.project}/${each.key}"
   values = local.app_secrets[each.key]
@@ -133,6 +148,45 @@ module "sqs" {
   source = "../../modules/sqs"
 
   name = "${var.project}-analytics-events"
+}
+
+# ============================================================================
+# Pod Identity: role de cada serviço que chama APIs da AWS (sem access key em Secret)
+
+# evaluation-service: só publica na fila
+module "evaluation_identity" {
+  source = "../../modules/pod-identity"
+
+  name            = "evaluation-service"
+  cluster_name    = module.eks.cluster_name
+  namespace       = "evaluation-service"
+  service_account = "sa-evaluation-service"
+  statements = [
+    {
+      actions   = ["sqs:SendMessage"]
+      resources = [module.sqs.queue_arn]
+    },
+  ]
+}
+
+# analytics-service: consome a fila e grava na tabela
+module "analytics_identity" {
+  source = "../../modules/pod-identity"
+
+  name            = "analytics-service"
+  cluster_name    = module.eks.cluster_name
+  namespace       = "analytics-service"
+  service_account = "sa-analytics-service"
+  statements = [
+    {
+      actions   = ["sqs:ReceiveMessage", "sqs:DeleteMessage", "sqs:GetQueueAttributes"]
+      resources = [module.sqs.queue_arn]
+    },
+    {
+      actions   = ["dynamodb:PutItem"]
+      resources = [module.dynamodb.table_arn]
+    },
+  ]
 }
 
 # ============================================================================

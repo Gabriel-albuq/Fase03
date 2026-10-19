@@ -90,8 +90,6 @@
   A tag atual de cada serviço é a do newTag no overlay (o job update-gitops
   do CI muda a cada push), então ver no próprio arquivo:
     grep -r newTag gitops-repo/applications/*/overlays/production/kustomization.yaml
-    evaluation-service .. (ainda não está no gitops-repo)
-    analytics-service ... (ainda não está no gitops-repo)
 
   Conferir:
     aws ecr list-images --repository-name auth-service --region us-east-1
@@ -121,6 +119,8 @@
   kubectl apply -f gitops-repo/applications/auth-service-app.yaml
   kubectl apply -f gitops-repo/applications/flag-service-app.yaml
   kubectl apply -f gitops-repo/applications/targeting-service-app.yaml
+  kubectl apply -f gitops-repo/applications/evaluation-service-app.yaml
+  kubectl apply -f gitops-repo/applications/analytics-service-app.yaml
 
 --------------------------------------------------------------------------
 1.9 Conferir
@@ -214,4 +214,5 @@
       as tabelas vêm do job db-init no sync do ArgoCD.
     - Senhas do RDS e MASTER_KEY: novas a cada apply (o External Secrets
       lê os valores novos sozinho). A SERVICE_API_KEY do evaluation
-      precisa ser gerada de novo.
+      também é nova; o hash dela entra no banco do auth pelo job db-init
+      (api-keys.sql), então não há passo manual.

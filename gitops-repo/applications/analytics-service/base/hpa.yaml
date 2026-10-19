@@ -1,0 +1,25 @@
+# ============================================
+# HPA: Analytics Service
+# ============================================
+# Escala o deployment entre 2 e 4 réplicas pelo uso de CPU
+# Depende do metrics-server instalado no cluster
+# ============================================
+
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: hpa-analytics-service
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: deployment-analytics-service        # Deployment controlado
+  minReplicas: 2                         # Mínimo (alta disponibilidade entre os 2 nodes)
+  maxReplicas: 4                         # Máximo (limite de pods dos 2 nodes t3.medium)
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70           # Escala quando a CPU média passa de 70%
