@@ -1,0 +1,14 @@
+# ============================================
+# CONFIGMAP: Flag Service
+# ============================================
+# Configuração não sensível do flag-service
+# (credenciais do banco ficam no ExternalSecret)
+# ============================================
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: configmap-flag-service
+data:
+  # Service do auth-service, em outro namespace (por isso o FQDN)
+  AUTH_SERVICE_URL: "http://svc-auth-service.auth-service.svc.cluster.local:80"

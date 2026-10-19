@@ -1,0 +1,14 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deployment-targeting-service
+spec:
+  template:
+    spec:
+      containers:
+      - name: targeting-service
+        env:
+        - name: ENVIRONMENT
+          value: "production"
+        - name: DEPLOYMENT_TYPE
+          value: "gitops-production"

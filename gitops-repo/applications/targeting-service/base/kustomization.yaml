@@ -1,0 +1,26 @@
+# ============================================
+# KUSTOMIZATION: Targeting Service Base
+# ============================================
+# Configuração base do Kustomize
+# Define recursos e labels comuns
+# ============================================
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+- externalsecret.yaml                    # Secret vindo do AWS Secrets Manager (External Secrets)
+- configmap.yaml                         # AUTH_SERVICE_URL
+- deployment.yaml
+- service.yaml
+- hpa.yaml
+- db-init-job.yaml
+
+configMapGenerator:
+- name: db-init-targeting-service             # init.sql vira ConfigMap montado no Job
+  files:
+  - init.sql
+
+commonLabels:
+  app: targeting-service
+  managed-by: gitops
