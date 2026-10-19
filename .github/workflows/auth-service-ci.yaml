@@ -156,12 +156,65 @@ jobs:
           docker push "$REGISTRY/$ECR_REPOSITORY:$TAG"
           echo "Imagem enviada: \`$REGISTRY/$ECR_REPOSITORY:$TAG\`" >> "$GITHUB_STEP_SUMMARY"
 
+  # ==========================================================================
+  # Job 5: Update GitOps - grava a tag nova no overlay; o ArgoCD sincroniza a partir do commit
+  # Não gera loop: o push com GITHUB_TOKEN não dispara workflows e o paths do CI não inclui gitops-repo/
+  update-gitops:
+    name: 🚀 Update GitOps
+    runs-on: ubuntu-latest
+    needs: docker
+    # Só quando a imagem foi de fato enviada ao ECR (mesma condição do push)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.ENABLE_ECR_PUSH == 'true'
+    permissions:
+      contents: write # Necessário para o push com o GITHUB_TOKEN
+    # Um update por vez no repo inteiro: evita dois serviços dando push ao mesmo tempo
+    concurrency:
+      group: gitops-update
+      cancel-in-progress: false
+
+    defaults:
+      run:
+        working-directory: gitops-repo/applications/auth-service/overlays/production
+
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main # Ponta da main (não o commit que disparou), para o push não ser rejeitado
+
+      - name: 🏷️ Update image tag
+        env:
+          REGISTRY: 798350130470.dkr.ecr.us-east-1.amazonaws.com # Mesmo newName do overlay
+          TAG: ${{ needs.docker.outputs.image-tag }}
+        run: |
+          kustomize edit set image "$ECR_REPOSITORY=$REGISTRY/$ECR_REPOSITORY:$TAG"
+          git diff
+
+      - name: 📤 Commit & push
+        env:
+          TAG: ${{ needs.docker.outputs.image-tag }}
+        run: |
+          if git diff --quiet; then
+            echo "Tag $TAG já está no overlay, nada a commitar" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "chore($ECR_REPOSITORY): image $TAG"
+          # Se outro commit entrou na main nesse meio tempo, rebase e tenta de novo
+          for i in 1 2 3; do
+            git pull --rebase origin main && git push origin main && break
+            [ "$i" = 3 ] && exit 1
+            sleep 5
+          done
+          echo "GitOps atualizado: \`$ECR_REPOSITORY:$TAG\`" >> "$GITHUB_STEP_SUMMARY"
+
   # ============================================
-  # JOB 5: Pipeline Summary
+  # JOB 6: Pipeline Summary
   pipeline-summary:
     name: 📊 Pipeline Summary
     runs-on: ubuntu-latest
-    needs: [build-test, lint, security, docker]
+    needs: [build-test, lint, security, docker, update-gitops]
     if: always()
 
     # Sem checkout a pasta auth-service não existe, então este job roda na raiz
@@ -177,6 +230,7 @@ jobs:
           LINT: ${{ needs.lint.result }}
           SECURITY: ${{ needs.security.result }}
           DOCKER: ${{ needs.docker.result }}
+          GITOPS: ${{ needs.update-gitops.result }}
           PUSHED: ${{ needs.docker.result == 'success' && github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.ENABLE_ECR_PUSH == 'true' }}
         run: |
           # Resultado real do job -> ícone
@@ -204,6 +258,7 @@ jobs:
           echo "2. 🧹 **Lint:** $(icon "$LINT") $LINT" >> $GITHUB_STEP_SUMMARY
           echo "3. 🛡️ **Security Scan:** $(icon "$SECURITY") $SECURITY" >> $GITHUB_STEP_SUMMARY
           echo "4. 🐳 **Docker Build & Push:** $(icon "$DOCKER") $DOCKER" >> $GITHUB_STEP_SUMMARY
+          echo "5. 🚀 **Update GitOps:** $(icon "$GITOPS") $GITOPS" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Deployment Details:" >> $GITHUB_STEP_SUMMARY
           echo "- **Image:** \`$ECR_REPOSITORY:${IMAGE_TAG:-not built}\`" >> $GITHUB_STEP_SUMMARY
