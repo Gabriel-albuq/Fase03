@@ -87,10 +87,9 @@
     > "Re-run all jobs"
   A tag é v1.0.0-<sha7> do commit, então o re-run gera a mesma tag.
 
-  Tags atuais nos overlays (gitops-repo/applications/<serviço>/overlays/production):
-    auth-service ........ v1.0.0-ea9c7ed
-    flag-service ........ v1.0.0-ea9c7ed
-    targeting-service ... v1.0.0-ea9c7ed
+  A tag atual de cada serviço é a do newTag no overlay (o job update-gitops
+  do CI muda a cada push), então ver no próprio arquivo:
+    grep -r newTag gitops-repo/applications/*/overlays/production/kustomization.yaml
     evaluation-service .. (ainda não está no gitops-repo)
     analytics-service ... (ainda não está no gitops-repo)
 
