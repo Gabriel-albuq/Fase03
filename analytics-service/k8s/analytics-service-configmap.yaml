@@ -1,9 +1,0 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: configmap-analytics-service
-  namespace: analytics-service
-data:
-  AWS_SQS_URL: "https://sqs.us-east-2.amazonaws.com/370930247065/sqs-analytics-service"
-  AWS_REGION: "us-east-2"
-  AWS_DYNAMODB_TABLE: "ToggleMasterAnalytics"

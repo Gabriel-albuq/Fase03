@@ -71,3 +71,10 @@ override.tf.json
 terraform.rc
 tfplan
 observacoes.txt
+
+# Documentação pessoal: nenhum .md/.txt vai para o repo, exceto os README
+# (requirements.txt é dependência dos serviços Python, não documentação)
+*.md
+!README.md
+*.txt
+!requirements.txt

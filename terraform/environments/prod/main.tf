@@ -40,7 +40,7 @@ module "eks" {
 
   cluster_name = local.cluster_name
   subnet_ids   = module.networking.private_subnet_ids # Nodes nas subnets privadas que saem do output do networking
-  desired_size = 2                                    # 1 t3.medium comporta só 17 pods; ver observacoes.txt
+  desired_size = 2                                    # 1 t3.medium comporta só 17 pods (limite de IPs por ENI); 2 nodes = 34
 }
 
 # ============================================================================
