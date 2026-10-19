@@ -15,4 +15,4 @@ commonLabels:
 images:
 - name: analytics-service
   newName: 798350130470.dkr.ecr.us-east-1.amazonaws.com/analytics-service
-  newTag: v1.0.0-4a7876f
+  newTag: v1.0.0-0f2413c
