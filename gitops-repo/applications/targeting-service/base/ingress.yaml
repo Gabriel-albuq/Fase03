@@ -1,0 +1,26 @@
+# ============================================
+# INGRESS: Targeting Service
+# ============================================
+# Rota pública via ingress-nginx (um único NLB para os 5 serviços)
+# http://<NLB>/targeting/<rota> chega no serviço como /<rota> (rewrite-target)
+# Mesmo prefixo da Fase 2
+# ============================================
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ingress-targeting-service
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$2   # Remove o prefixo /targeting antes de enviar ao serviço
+spec:
+  ingressClassName: nginx                # Controller instalado via Helm (namespace ingress-nginx)
+  rules:
+  - http:
+      paths:
+      - path: /targeting(/|$)(.*)
+        pathType: ImplementationSpecific # Regex do nginx
+        backend:
+          service:
+            name: svc-targeting-service
+            port:
+              number: 80

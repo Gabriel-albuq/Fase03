@@ -14,6 +14,7 @@ resources:
 - configmap.yaml                         # Fila SQS, tabela DynamoDB e região
 - deployment.yaml
 - service.yaml
+- ingress.yaml                           # Rota pública /analytics no ingress-nginx
 - hpa.yaml
 
 commonLabels:

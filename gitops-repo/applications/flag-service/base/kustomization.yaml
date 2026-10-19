@@ -13,6 +13,7 @@ resources:
 - configmap.yaml                         # AUTH_SERVICE_URL
 - deployment.yaml
 - service.yaml
+- ingress.yaml                           # Rota pública /flags no ingress-nginx
 - hpa.yaml
 - db-init-job.yaml
 

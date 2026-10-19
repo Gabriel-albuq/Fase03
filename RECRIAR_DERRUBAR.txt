@@ -47,6 +47,18 @@
   kubectl get deployment metrics-server -n kube-system   # 1/1
   kubectl top nodes                         # mostra CPU/memória = funcionando
 
+  ingress-nginx (ANTES das Applications: sem ele os Ingress ficam
+  Progressing no ArgoCD). Cria um NLB na AWS, fora do Terraform (ver 2.2):
+    helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+    helm repo update
+    helm install ingress-nginx ingress-nginx/ingress-nginx -n ingress-nginx --create-namespace --version 4.15.1 \
+      --set controller.replicaCount=1 \
+      --set-string controller.service.annotations."service\.beta\.kubernetes\.io/aws-load-balancer-type"=nlb
+    kubectl wait --for=condition=Ready pods --all -n ingress-nginx --timeout=180s
+    kubectl get svc ingress-nginx-controller -n ingress-nginx   # EXTERNAL-IP = DNS do NLB
+  O DNS muda a cada recriação. Rotas: http://<NLB>/auth, /flags,
+  /targeting, /evaluation, /analytics (o prefixo é removido antes do serviço).
+
 --------------------------------------------------------------------------
 1.5 External Secrets (DEPOIS do apply: o Pod Identity só injeta
     credenciais em pods criados depois da associação)
@@ -160,7 +172,10 @@
   Se aparecer algo, apagar antes (ex.: helm uninstall ingress-nginx -n ingress-nginx)
   e esperar o ELB sumir no console (EC2 > Load Balancers).
 
-  Hoje os Services são ClusterIP, então normalmente não há nada aqui.
+  O ingress-nginx (1.4) cria um NLB, então este passo é OBRIGATÓRIO:
+    helm uninstall ingress-nginx -n ingress-nginx
+    aws elbv2 describe-load-balancers --region us-east-1 --query "LoadBalancers[].LoadBalancerName"
+    # repetir até voltar [] (leva 1-2 min)
 
 --------------------------------------------------------------------------
 2.3 Apagar as Applications do ArgoCD (opcional, mas deixa limpo)

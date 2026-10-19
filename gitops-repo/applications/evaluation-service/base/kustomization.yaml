@@ -15,6 +15,7 @@ resources:
 - configmap.yaml                         # URLs internas, fila SQS e região
 - deployment.yaml
 - service.yaml
+- ingress.yaml                           # Rota pública /evaluation no ingress-nginx
 - hpa.yaml
 
 commonLabels:

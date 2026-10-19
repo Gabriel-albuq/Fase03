@@ -12,6 +12,7 @@ resources:
 - externalsecret.yaml                    # Secret vindo do AWS Secrets Manager (External Secrets)
 - deployment.yaml
 - service.yaml
+- ingress.yaml                           # Rota pública /auth no ingress-nginx
 - hpa.yaml
 - db-init-job.yaml
 
