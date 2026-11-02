@@ -15,4 +15,4 @@ commonLabels:
 images:
 - name: targeting-service
   newName: 798350130470.dkr.ecr.us-east-1.amazonaws.com/targeting-service
-  newTag: v1.0.0-f45a0cc
+  newTag: v1.0.0-0f2413c
