@@ -15,4 +15,4 @@ commonLabels:
 images:
 - name: auth-service
   newName: 798350130470.dkr.ecr.us-east-1.amazonaws.com/auth-service
-  newTag: v1.0.0-f2b8e71
+  newTag: v1.0.0-0f2413c
