@@ -2,4 +2,5 @@ Flask==3.0.3
 psycopg2-binary==2.9.10
 gunicorn==23.0.0
 python-dotenv==0.21.0
-requests==2.28.1Django==2.2
+requests==2.28.1
+Django==2.2
